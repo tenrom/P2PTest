@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PeerJS Room Chat</title>
+
+<style>
+body{
+    margin:0;
+    padding:20px;
+    font-family:Arial,sans-serif;
+    background:#181818;
+    color:white;
+}
+
+.container{
+    max-width:900px;
+    margin:auto;
+}
+
+.card{
+    background:#252525;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:15px;
+}
+
+input{
+    width:100%;
+    box-sizing:border-box;
+    padding:10px;
+    margin:5px 0;
+    border:none;
+    border-radius:6px;
+}
+
+button{
+    padding:10px 15px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    margin-top:5px;
+}
+
+#messages{
+    height:350px;
+    overflow-y:auto;
+    background:#111;
+    border-radius:8px;
+    padding:10px;
+}
+
+.message{
+    margin:6px 0;
+    word-wrap:break-word;
+}
+
+.system{
+    color:#66c8ff;
+}
+
+.me{
+    color:#7dff7d;
+}
+
+.other{
+    color:white;
+}
+
+#error{
+    color:#ff7777;
+}
+
+#status{
+    font-weight:bold;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>PeerJS Room Chat</h1>
+
+<div class="card">
+<h3>Create Room</h3>
+
+<input
+id="roomName"
+placeholder="Enter room code (optional)"
+maxlength="32">
+
+<button id="hostBtn">
+Create Room
+</button>
+
+<p>
+Room Code:
+<strong id="roomCode">
+Not created
+</strong>
+</p>
+</div>
+
+<div class="card">
+<h3>Join Room</h3>
+
+<input
+id="joinCode"
+placeholder="Enter room code">
+
+<button id="joinBtn">
+Join Room
+</button>
+</div>
+
+<div class="card">
+<p id="status">
+Disconnected
+</p>
+
+<p id="error"></p>
+
+<div id="messages"></div>
+
+<input
+id="messageInput"
+placeholder="Type message...">
+
+<button id="sendBtn">
+Send
+</button>
+</div>
+
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<script>
+
+let peer = null;
+let hostConnection = null;
+let connections = [];
+let isHost = false;
+
+const statusEl =
+document.getElementById("status");
+
+const errorEl =
+document.getElementById("error");
+
+const messagesEl =
+document.getElementById("messages");
+
+function setStatus(text){
+    statusEl.textContent = text;
+}
+
+function setError(text){
+    errorEl.textContent = text;
+}
+
+function addMessage(text, type="system"){
+
+    const div =
+    document.createElement("div");
+
+    div.className =
+    "message " + type;
+
+    div.textContent = text;
+
+    messagesEl.appendChild(div);
+
+    messagesEl.scrollTop =
+    messagesEl.scrollHeight;
+}
+
+function randomRoomCode(){
+
+    return "room-" +
+    Math.random()
+    .toString(36)
+    .substring(2,8);
+}
+
+function createPeer(peerId = undefined){
+
+    if(peer){
+        peer.destroy();
+    }
+
+    peer = new Peer(peerId);
+
+    peer.on("open",(id)=>{
+
+        setStatus(
+            "Connected to PeerJS"
+        );
+
+        setError("");
+
+        console.log(
+            "Peer ID:",
+            id
+        );
+    });
+
+    peer.on("error",(err)=>{
+
+        console.error(err);
+
+        setError(
+            err.type +
+            ": " +
+            err.message
+        );
+
+    });
+
+    peer.on("disconnected",()=>{
+
+        setStatus(
+            "Disconnected"
+        );
+
+    });
+
+    peer.on("close",()=>{
+
+        setStatus(
+            "Closed"
+        );
+
+    });
+
+    return peer;
+}
+
+function setupConnection(conn){
+
+    conn.on("open",()=>{
+
+        addMessage(
+            conn.peer +
+            " connected"
+        );
+
+    });
+
+    conn.on("data",(data)=>{
+
+        if(
+            !data ||
+            data.type !== "chat"
+        ){
+            return;
+        }
+
+        addMessage(
+            data.text,
+            "other"
+        );
+
+        if(isHost){
+
+            connections.forEach(c=>{
+
+                if(
+                    c !== conn &&
+                    c.open
+                ){
+                    c.send(data);
+                }
+
+            });
+
+        }
+
+    });
+
+    conn.on("close",()=>{
+
+        addMessage(
+            conn.peer +
+            " disconnected"
+        );
+
+        connections =
+        connections.filter(
+            c => c !== conn
+        );
+
+    });
+
+    conn.on("error",(err)=>{
+
+        console.error(err);
+
+    });
+
+}
+
+document
+.getElementById("hostBtn")
+.addEventListener(
+"click",
+()=>{
+
+    if(peer){
+        alert(
+            "Room already created."
+        );
+        return;
+    }
+
+    isHost = true;
+
+    let roomCode =
+    document
+    .getElementById(
+        "roomName"
+    )
+    .value
+    .trim();
+
+    if(!roomCode){
+        roomCode =
+        randomRoomCode();
+    }
+
+    createPeer(roomCode);
+
+    peer.on(
+        "open",
+        (id)=>{
+
+            document
+            .getElementById(
+                "roomCode"
+            )
+            .textContent = id;
+
+            addMessage(
+                "Room created: "
+                + id
+            );
+
+        }
+    );
+
+    peer.on(
+        "connection",
+        (conn)=>{
+
+            connections.push(
+                conn
+            );
+
+            setupConnection(
+                conn
+            );
+
+        }
+    );
+
+});
+
+document
+.getElementById("joinBtn")
+.addEventListener(
+"click",
+()=>{
+
+    if(peer){
+        alert(
+            "Already connected."
+        );
+        return;
+    }
+
+    const roomCode =
+    document
+    .getElementById(
+        "joinCode"
+    )
+    .value
+    .trim();
+
+    if(!roomCode){
+
+        alert(
+            "Enter a room code."
+        );
+
+        return;
+    }
+
+    createPeer();
+
+    peer.on(
+        "open",
+        ()=>{
+
+            hostConnection =
+            peer.connect(
+                roomCode
+            );
+
+            setupConnection(
+                hostConnection
+            );
+
+        }
+    );
+
+});
+
+function sendMessage(){
+
+    const input =
+    document
+    .getElementById(
+        "messageInput"
+    );
+
+    const text =
+    input.value.trim();
+
+    if(!text){
+        return;
+    }
+
+    const packet = {
+
+        type:"chat",
+
+        text:text
+
+    };
+
+    let sent = false;
+
+    if(isHost){
+
+        connections.forEach(c=>{
+
+            if(c.open){
+
+                c.send(packet);
+
+                sent = true;
+
+            }
+
+        });
+
+    }else{
+
+        if(
+            hostConnection &&
+            hostConnection.open
+        ){
+
+            hostConnection.send(
+                packet
+            );
+
+            sent = true;
+
+        }
+
+    }
+
+    if(!sent){
+
+        alert(
+            "Not connected yet."
+        );
+
+        return;
+    }
+
+    addMessage(
+        text,
+        "me"
+    );
+
+    input.value = "";
+
+}
+
+document
+.getElementById("sendBtn")
+.addEventListener(
+"click",
+sendMessage
+);
+
+document
+.getElementById(
+    "messageInput"
+)
+.addEventListener(
+"keydown",
+(e)=>{
+
+    if(
+        e.key === "Enter"
+    ){
+
+        sendMessage();
+
+    }
+
+});
+</script>
+
+</body>
+</html>
