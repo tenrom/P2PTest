@@ -101,8 +101,9 @@ Envoyer
 
 <script type="module">
 
-import { initializeApp }
-from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
 
 import {
     getFirestore,
@@ -112,33 +113,22 @@ import {
     orderBy,
     onSnapshot
 }
-from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
 
-/*
-COLLE ICI TON firebaseConfig
-*/
 
 const firebaseConfig = {
-
-    apiKey: "COLLE_ICI",
-
-    authDomain: "COLLE_ICI",
-
-    projectId: "COLLE_ICI",
-
-    storageBucket: "COLLE_ICI",
-
-    messagingSenderId: "COLLE_ICI",
-
-    appId: "COLLE_ICI"
-
+    apiKey: "AIzaSyC_usFloz5flGOoIOQ1NByMl2PxeiDRfvs",
+    authDomain: "p2ptest-7bfe6.firebaseapp.com",
+    projectId: "p2ptest-7bfe6",
+    storageBucket: "p2ptest-7bfe6.firebasestorage.app",
+    messagingSenderId: "853874138916",
+    appId: "1:853874138916:web:72ff9b37a86e9b947cddb1"
 };
 
-const app =
-initializeApp(firebaseConfig);
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 
-const db =
-getFirestore(app);
+const db = getFirestore(app);
 
 let currentRoom = "";
 let username = "";
