@@ -1,17 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PeerJS Room Chat</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Room Chat</title>
 
 <style>
+
 body{
+    font-family:Arial,sans-serif;
+    background:#1a1a1a;
+    color:white;
     margin:0;
     padding:20px;
-    font-family:Arial,sans-serif;
-    background:#181818;
-    color:white;
 }
 
 .container{
@@ -20,7 +21,7 @@ body{
 }
 
 .card{
-    background:#252525;
+    background:#262626;
     padding:15px;
     border-radius:10px;
     margin-bottom:15px;
@@ -28,23 +29,22 @@ body{
 
 input{
     width:100%;
-    box-sizing:border-box;
     padding:10px;
     margin:5px 0;
     border:none;
     border-radius:6px;
+    box-sizing:border-box;
 }
 
 button{
-    padding:10px 15px;
+    padding:10px;
     border:none;
     border-radius:6px;
     cursor:pointer;
-    margin-top:5px;
 }
 
 #messages{
-    height:350px;
+    height:400px;
     overflow-y:auto;
     background:#111;
     border-radius:8px;
@@ -52,383 +52,207 @@ button{
 }
 
 .message{
-    margin:6px 0;
-    word-wrap:break-word;
+    margin:5px 0;
 }
 
 .system{
     color:#66c8ff;
 }
 
-.me{
-    color:#7dff7d;
-}
-
-.other{
-    color:white;
-}
-
-#error{
-    color:#ff7777;
-}
-
-#status{
-    font-weight:bold;
-}
 </style>
 </head>
 <body>
 
 <div class="container">
 
-<h1>PeerJS Room Chat</h1>
-
 <div class="card">
-<h3>Create Room</h3>
+
+<h2>Connexion</h2>
 
 <input
-id="roomName"
-placeholder="Enter room code (optional)"
-maxlength="32">
-
-<button id="hostBtn">
-Create Room
-</button>
-
-<p>
-Room Code:
-<strong id="roomCode">
-Not created
-</strong>
-</p>
-</div>
-
-<div class="card">
-<h3>Join Room</h3>
+id="username"
+placeholder="Pseudo">
 
 <input
-id="joinCode"
-placeholder="Enter room code">
+id="room"
+placeholder="Code de salle">
 
 <button id="joinBtn">
-Join Room
+Rejoindre la salle
 </button>
+
 </div>
 
 <div class="card">
-<p id="status">
-Disconnected
-</p>
-
-<p id="error"></p>
 
 <div id="messages"></div>
 
 <input
 id="messageInput"
-placeholder="Type message...">
+placeholder="Message">
 
 <button id="sendBtn">
-Send
+Envoyer
 </button>
-</div>
 
 </div>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</div>
 
-<script>
+<script type="module">
 
-let peer = null;
-let hostConnection = null;
-let connections = [];
-let isHost = false;
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
 
-const statusEl =
-document.getElementById("status");
+import {
+    getFirestore,
+    collection,
+    addDoc,
+    query,
+    orderBy,
+    onSnapshot
+}
+from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
 
-const errorEl =
-document.getElementById("error");
+/*
+COLLE ICI TON firebaseConfig
+*/
 
-const messagesEl =
+const firebaseConfig = {
+
+    apiKey: "COLLE_ICI",
+
+    authDomain: "COLLE_ICI",
+
+    projectId: "COLLE_ICI",
+
+    storageBucket: "COLLE_ICI",
+
+    messagingSenderId: "COLLE_ICI",
+
+    appId: "COLLE_ICI"
+
+};
+
+const app =
+initializeApp(firebaseConfig);
+
+const db =
+getFirestore(app);
+
+let currentRoom = "";
+let username = "";
+
+const messagesDiv =
 document.getElementById("messages");
 
-function setStatus(text){
-    statusEl.textContent = text;
-}
-
-function setError(text){
-    errorEl.textContent = text;
-}
-
-function addMessage(text, type="system"){
+function addMessage(text){
 
     const div =
     document.createElement("div");
 
     div.className =
-    "message " + type;
+    "message";
 
-    div.textContent = text;
+    div.textContent =
+    text;
 
-    messagesEl.appendChild(div);
+    messagesDiv.appendChild(div);
 
-    messagesEl.scrollTop =
-    messagesEl.scrollHeight;
+    messagesDiv.scrollTop =
+    messagesDiv.scrollHeight;
 }
-
-function randomRoomCode(){
-
-    return "room-" +
-    Math.random()
-    .toString(36)
-    .substring(2,8);
-}
-
-function createPeer(peerId = undefined){
-
-    if(peer){
-        peer.destroy();
-    }
-
-    peer = new Peer(peerId, {
-        config: {
-            iceServers: [
-            {
-                urls: [
-                "stun:stun.l.google.com:19302",
-                "stun:stun1.l.google.com:19302"
-                ]
-            }
-            ]
-        }
-    });
-
-    peer.on("open",(id)=>{
-
-        setStatus(
-            "Connected to PeerJS"
-        );
-
-        setError("");
-
-        console.log(
-            "Peer ID:",
-            id
-        );
-    });
-
-    peer.on("error",(err)=>{
-
-        console.error(err);
-
-        setError(
-            err.type +
-            ": " +
-            err.message
-        );
-
-    });
-
-    peer.on("disconnected",()=>{
-
-        setStatus(
-            "Disconnected"
-        );
-
-    });
-
-    peer.on("close",()=>{
-
-        setStatus(
-            "Closed"
-        );
-
-    });
-
-    return peer;
-}
-
-function setupConnection(conn){
-
-    conn.on("open",()=>{
-
-        addMessage(
-            conn.peer +
-            " connected"
-        );
-
-    });
-
-    conn.on("data",(data)=>{
-
-        if(
-            !data ||
-            data.type !== "chat"
-        ){
-            return;
-        }
-
-        addMessage(
-            data.text,
-            "other"
-        );
-
-        if(isHost){
-
-            connections.forEach(c=>{
-
-                if(
-                    c !== conn &&
-                    c.open
-                ){
-                    c.send(data);
-                }
-
-            });
-
-        }
-
-    });
-
-    conn.on("close",()=>{
-
-        addMessage(
-            conn.peer +
-            " disconnected"
-        );
-
-        connections =
-        connections.filter(
-            c => c !== conn
-        );
-
-    });
-
-    conn.on("error",(err)=>{
-
-        console.error(err);
-
-    });
-
-}
-
-document
-.getElementById("hostBtn")
-.addEventListener(
-"click",
-()=>{
-
-    if(peer){
-        alert(
-            "Room already created."
-        );
-        return;
-    }
-
-    isHost = true;
-
-    let roomCode =
-    document
-    .getElementById(
-        "roomName"
-    )
-    .value
-    .trim();
-
-    if(!roomCode){
-        roomCode =
-        randomRoomCode();
-    }
-
-    createPeer(roomCode);
-
-    peer.on(
-        "open",
-        (id)=>{
-
-            document
-            .getElementById(
-                "roomCode"
-            )
-            .textContent = id;
-
-            addMessage(
-                "Room created: "
-                + id
-            );
-
-        }
-    );
-
-    peer.on(
-        "connection",
-        (conn)=>{
-
-            connections.push(
-                conn
-            );
-
-            setupConnection(
-                conn
-            );
-
-        }
-    );
-
-});
 
 document
 .getElementById("joinBtn")
-.addEventListener(
-"click",
-()=>{
+.addEventListener("click",()=>{
 
-    if(peer){
-        alert(
-            "Already connected."
-        );
-        return;
-    }
-
-    const roomCode =
+    username =
     document
-    .getElementById(
-        "joinCode"
-    )
+    .getElementById("username")
     .value
     .trim();
 
-    if(!roomCode){
+    currentRoom =
+    document
+    .getElementById("room")
+    .value
+    .trim()
+    .toUpperCase();
+
+    if(!username || !currentRoom){
 
         alert(
-            "Enter a room code."
+            "Pseudo et salle requis"
         );
 
         return;
     }
 
-    createPeer();
+    messagesDiv.innerHTML="";
 
-    peer.on(
-        "open",
-        ()=>{
-
-            hostConnection =
-            peer.connect(
-                roomCode
-            );
-
-            setupConnection(
-                hostConnection
-            );
-
-        }
+    const q = query(
+        collection(
+            db,
+            "rooms",
+            currentRoom,
+            "messages"
+        ),
+        orderBy("created")
     );
+
+    onSnapshot(q,(snapshot)=>{
+
+        messagesDiv.innerHTML="";
+
+        snapshot.forEach((doc)=>{
+
+            const data =
+            doc.data();
+
+            addMessage(
+                data.user +
+                " : " +
+                data.text
+            );
+
+        });
+
+    });
 
 });
 
-function sendMessage(){
+document
+.getElementById("sendBtn")
+.addEventListener(
+"click",
+sendMessage
+);
+
+document
+.getElementById("messageInput")
+.addEventListener(
+"keydown",
+e=>{
+
+    if(e.key==="Enter"){
+
+        sendMessage();
+
+    }
+
+});
+
+async function sendMessage(){
+
+    if(!currentRoom){
+
+        alert(
+            "Rejoins une salle"
+        );
+
+        return;
+    }
 
     const input =
     document
@@ -443,89 +267,23 @@ function sendMessage(){
         return;
     }
 
-    const packet = {
-
-        type:"chat",
-
-        text:text
-
-    };
-
-    let sent = false;
-
-    if(isHost){
-
-        connections.forEach(c=>{
-
-            if(c.open){
-
-                c.send(packet);
-
-                sent = true;
-
-            }
-
-        });
-
-    }else{
-
-        if(
-            hostConnection &&
-            hostConnection.open
-        ){
-
-            hostConnection.send(
-                packet
-            );
-
-            sent = true;
-
+    await addDoc(
+        collection(
+            db,
+            "rooms",
+            currentRoom,
+            "messages"
+        ),
+        {
+            user: username,
+            text: text,
+            created: Date.now()
         }
-
-    }
-
-    if(!sent){
-
-        alert(
-            "Not connected yet."
-        );
-
-        return;
-    }
-
-    addMessage(
-        text,
-        "me"
     );
 
-    input.value = "";
-
+    input.value="";
 }
 
-document
-.getElementById("sendBtn")
-.addEventListener(
-"click",
-sendMessage
-);
-
-document
-.getElementById(
-    "messageInput"
-)
-.addEventListener(
-"keydown",
-(e)=>{
-
-    if(
-        e.key === "Enter"
-    ){
-
-        sendMessage();
-
-    }
-
-});
 </script>
 
 </body>
