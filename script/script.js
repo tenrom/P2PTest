@@ -161,7 +161,7 @@ app.ticker.add(() => {
     
     let offsetWorld=Math.round(world.x/(tileSize*Math.sqrt(3)/2*world.scale.x))
     let lastOffsetTile=offsetTile
-    if (world.scale.x > app.screen.width/(tileSize*Math.sqrt(3)/2*101){
+    if (world.scale.x > app.screen.width/(tileSize*Math.sqrt(3)/2*101)){
         offsetTile=-offsetWorld-1
     }else{
         offsetTile=-offsetWorld
@@ -441,7 +441,7 @@ class GridTile extends PIXI.Sprite{
 
         this.on('click',()=>{
             console.log(this.origCoord)
-            this.debugLabel.visible=false
+            this.debugLabel.visible=true
             setTimeout(()=>{
                 this.debugLabel.visible=false
             },1000)
