@@ -31,95 +31,98 @@ world.scale.set(Math.max(app.screen.width/(tileSize*Math.sqrt(3)/2*102),2));
 
 app.stage.hitArea = app.screen;
 
-let dragging = false
-let lastPos = null
+const pointers = new Map();
 
-//Touch
-const pointers = new Map()
-let lastDistance = null
+let lastCenter = null;
+let lastDistance = null;
 
 app.stage.on('pointerdown', (e) => {
-    if (pointers.size === 2) {
-        pointers.set(e.pointerId, {
-            x: e.global.x,
-            y: e.global.y
-        });
-    } else {
-        dragging = true
-        app.view.style.cursor = "grabbing"
-        lastPos = e.global.clone()
-    }
+    pointers.set(e.pointerId, {
+        x: e.global.x,
+        y: e.global.y
+    })
 })
 
-app.stage.on('pointerup', () => {
-    if (pointers.size === 2) {
-        pointers.delete(e.pointerId)
-        lastDistance = null
-    } else{
-        dragging = false
-        app.view.style.cursor = "default"
-    }
-})
+function removePointer(e) {
+    pointers.delete(e.pointerId)
 
-app.stage.on('pointerupoutside', () => {
-    if (pointers.size === 2) {
-        pointers.delete(e.pointerId)
-        lastDistance = null
-    }else{
-        dragging = false
-        app.view.style.cursor = "default"
-    }
-})
+    lastCenter = null
+    lastDistance = null
+}
+
+app.stage.on('pointerup', removePointer);
+app.stage.on('pointerupoutside', removePointer);
+app.stage.on('pointercancel', removePointer);
 
 app.stage.on('pointermove', (e) => {
-    if (pointers.size === 2) {
-        if (!pointers.has(e.pointerId)) return
+    if (!pointers.has(e.pointerId)) return
 
-        pointers.set(e.pointerId, {
-            x: e.global.x,
-            y: e.global.y
-        });
+    pointers.set(e.pointerId, {
+        x: e.global.x,
+        y: e.global.y
+    });
 
-        const [p1, p2] = [...pointers.values()]
+    const active = [...pointers.values()]
 
-        const distance = distanceEucl(p2,p1)
+    if (active.length === 1) {
+        const p = active[0]
 
-        if (lastDistance === null) {
-            lastDistance = distance
+        if (!lastCenter) {
+            lastCenter = { ...p }
             return
         }
-        const zoomFactor = distance / lastDistance
+
+        world.x += p.x - lastCenter.x
+        world.y += p.y - lastCenter.y
+
+        lastCenter = { ...p }
+        return
+    }
+
+    if (active.length === 2) {
+        const p1 = active[0]
+        const p2 = active[1]
+
         const center = {
             x: (p1.x + p2.x) / 2,
             y: (p1.y + p2.y) / 2
         }
-        const worldPosBefore = {
+
+        const distance = Math.hypot(
+            p2.x - p1.x,
+            p2.y - p1.y
+        )
+
+        if (!lastCenter || !lastDistance) {
+            lastCenter = center
+            lastDistance = distance
+            return
+        }
+
+        world.x += center.x - lastCenter.x
+        world.y += center.y - lastCenter.y
+
+        const worldBefore = {
             x: (center.x - world.x) / world.scale.x,
             y: (center.y - world.y) / world.scale.y
         }
-        let scale = world.scale.x * zoomFactor
 
+        let scale = world.scale.x * (distance / lastDistance)
         scale=scale.clamp(Math.max(app.screen.width/(tileSize*Math.sqrt(3)/2*102),2),20)
-
         world.scale.set(scale)
 
-        const worldPosAfter = {
+        const worldAfter = {
             x: (center.x - world.x) / world.scale.x,
             y: (center.y - world.y) / world.scale.y
         }
 
-        world.x += (worldPosAfter.x - worldPosBefore.x) * world.scale.x
-        world.y += (worldPosAfter.y - worldPosBefore.y) * world.scale.y
+        world.x += (worldAfter.x - worldBefore.x) * world.scale.x
+        world.y += (worldAfter.y - worldBefore.y) * world.scale.y
 
-        lastDistance = distance;
-    }else{
-        if (!dragging) return
-        const pos = e.global
-        world.x = (world.x + (pos.x - lastPos.x))
-        world.y = (world.y + (pos.y - lastPos.y)).clamp(-tileSize*world.scale.x*75+app.screen.height,0)
-        lastPos = pos.clone()
+        lastCenter = center
+        lastDistance = distance
     }
-})
+});
 
 app.stage.on('wheel', (e) => {
     const mouse = e.global;
@@ -416,18 +419,20 @@ class GridTile extends PIXI.Sprite{
         this.on('pointerover',()=>{
             gsap.to(this.polyBorder, {
                 alpha:1,
-                duration: 0.2,
+                duration: 0.1,
                 ease: "power2.inOut"
             });
         })
 
-        this.on('pointerout',()=>{
+        const pointerOut=()=>{
             gsap.to(this.polyBorder, {
                 alpha:0,
-                duration: 0.2,
+                duration: 0.1,
                 ease: "power2.inOut"
             });
-        })
+        }
+        this.on('pointerout', pointerOut);
+        this.on('pointercancel', pointerOut);
 
         this.on('click',()=>{
             console.log(this.origCoord)
