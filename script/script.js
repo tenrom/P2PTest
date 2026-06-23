@@ -404,7 +404,7 @@ class GridTile extends PIXI.Sprite{
         this.debugLabel.y = -this.debugLabel.height/2
 
         this.addChild(this.debugLabel)
-        this.debugLabel.visible=true
+        this.debugLabel.visible=false
         this.debugLabel.eventMode="none"
         
         // this.debugLabel = new PIXI.Text(`${this.coord[0]},${this.coord[1]}`,{
