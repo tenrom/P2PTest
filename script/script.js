@@ -405,6 +405,7 @@ class GridTile extends PIXI.Sprite{
 
         this.addChild(this.debugLabel)
         this.debugLabel.visible=false
+        this.debugLabel.eventMode="none"
         
         // this.debugLabel = new PIXI.Text(`${this.coord[0]},${this.coord[1]}`,{
         //         fontSize: size/5,
