@@ -161,7 +161,12 @@ app.ticker.add(() => {
     
     let offsetWorld=Math.round(world.x/(tileSize*Math.sqrt(3)/2*world.scale.x))
     let lastOffsetTile=offsetTile
-    offsetTile=-offsetWorld
+    if (world.scale.x > app.screen.width/(tileSize*Math.sqrt(3)/2*101){
+        offsetTile=-offsetWorld-1
+    }else{
+        offsetTile=-offsetWorld
+    }
+    
     warpTiles(lastOffsetTile,offsetTile)
 
     if (app.screen.width-world.x<=0 || world.x<=-tileSize*Math.sqrt(3)/2*102*world.scale.x){
