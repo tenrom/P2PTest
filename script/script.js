@@ -6,6 +6,11 @@ Number.prototype.clamp = function(min, max) {
 
 let tileSize=Math.round(800/(102/2*Math.sqrt(3)))
 let gridTiles
+let selectedTile
+let mapSpriteLeft
+let mapSprite
+let mapSpriteRight
+let pixels
 
 const createNoise2D=window.createNoise2D 
 
@@ -35,8 +40,14 @@ const pointers = new Map();
 
 let lastCenter = null;
 let lastDistance = null;
+let isDrag=false
+let isPress=false
+let coordPressStart
 
 app.stage.on('pointerdown', (e) => {
+    isPress=true
+    coordPressStart=[e.global.x,e.global.y]
+
     pointers.set(e.pointerId, {
         x: e.global.x,
         y: e.global.y
@@ -48,6 +59,8 @@ function removePointer(e) {
 
     lastCenter = null
     lastDistance = null
+
+    isPress=false
 }
 
 app.stage.on('pointerup', removePointer);
@@ -55,6 +68,13 @@ app.stage.on('pointerupoutside', removePointer);
 app.stage.on('pointercancel', removePointer);
 
 app.stage.on('pointermove', (e) => {
+
+    if (coordPressStart && isPress && distanceEucl([e.global.x,e.global.y],coordPressStart)>20){
+        isDrag=true
+    }else{
+        if (coordPressStart && isPress) console.log(distanceEucl([e.global.x,e.global.y],coordPressStart))
+    }
+    
     if (!pointers.has(e.pointerId)) return
 
     pointers.set(e.pointerId, {
@@ -193,6 +213,18 @@ function setPixel(x, y, color, a = 255) {
     imageData.data[index + 1] = color[1]; // G
     imageData.data[index + 2] = color[2]; // B
     imageData.data[index + 3] = a; // A
+}
+
+function DebugTile(){
+    const texture = PIXI.Texture.fromBuffer(
+        imageData.data,
+        imageData.width,
+        imageData.height
+    )
+
+    mapSpriteLeft.texture=texture
+    mapSprite.texture=texture
+    mapSpriteRight.texture=texture
 }
 
 function distanceEucl(c1,c2){
@@ -348,10 +380,49 @@ class PerlinNoise{
 }
 
 let tileTexture = PIXI.Texture.from("data/tileHex.png")
-let tileTextureHover = PIXI.Texture.from("data/tileHexHover.png")
 
 function getCoordHex(coord,size){
     return [size*Math.sqrt(3)*(coord[0]/2+(coord[1]%2)/4),size*coord[1]*3/4]
+}
+
+function getCoordNeighbors(coord){
+    let x=coord[0]
+    let y=coord[1]
+    let even=[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1]]
+    let odd=[[-1,0],[1,0],[0,-1],[0,1],[1,-1],[1,1]]
+    let r   
+    if (coord[1]%2===0){
+        r=even
+    }else{
+        r=odd
+    }
+    let ns=[]
+    for (let n in r){
+        let nx=(r[n][0]+x)%102
+        let ny=r[n][1]+y
+        console.log(nx,ny)
+        if (ny>0 && ny<100){
+            if (nx<0) {nx+=102}
+            ns.push([nx,ny])
+        }
+    }
+    return ns
+}
+
+function getTileFromCoord(coord){
+    return gridTiles[coord[0]][coord[1]]
+}
+
+function getTypeFromPixels(p){
+    n=[0,0,0,0,0,0,0]
+    max=0
+    for (let i in p){
+        n[p[i]]+=1
+        if (n[p[i]]>n[max]){
+            max=p[i]
+        }
+    }
+    return max
 }
 
 class GridTile extends PIXI.Sprite{
@@ -365,7 +436,7 @@ class GridTile extends PIXI.Sprite{
         this.width=this.size
         this.height=this.size
         
-        this.UpdatePosition()
+        this.UpdatePosition(true)
 
         this.anchor.set(0.5,0.5)
         let pointsHitBox=[]
@@ -385,12 +456,20 @@ class GridTile extends PIXI.Sprite{
             points.push(r * Math.cos(angle))
             points.push(r * Math.sin(angle))
         }
-        this.polyBorder = new PIXI.Graphics();
-        this.polyBorder.lineStyle(26, 0xff0000, 1);
-        this.polyBorder.drawPolygon(points)
-        this.polyBorder.alpha=0
-        
-        this.addChild(this.polyBorder);
+
+        //Selected Border
+        this.polyBorderSelected = new PIXI.Graphics();
+        this.polyBorderSelected.lineStyle(26, 0xffffff, 1);
+        this.polyBorderSelected.drawPolygon(points)
+        this.polyBorderSelected.alpha=0
+        this.addChild(this.polyBorderSelected);
+
+        //Debug Border
+        this.polyBorderDebug = new PIXI.Graphics();
+        this.polyBorderDebug.lineStyle(26, 0xff0000, 1);
+        this.polyBorderDebug.drawPolygon(points)
+        this.polyBorderDebug.alpha=0
+        this.addChild(this.polyBorderDebug);
 
         this.debugLabel = new PIXI.Text(`${this.origCoord[0]},${this.origCoord[1]}`,{
                 fontSize: 80,
@@ -422,36 +501,78 @@ class GridTile extends PIXI.Sprite{
 
         this.eventMode='static'
 
-        this.on('pointerover',()=>{
-            gsap.to(this.polyBorder, {
-                alpha:1,
-                duration: 0.1,
-                ease: "power2.inOut"
-            });
-        })
+        // this.on('pointerover',()=>{
+        //     gsap.to(this.polyBorderHover, {
+        //         alpha:1,
+        //         duration: 0.1,
+        //         ease: "power2.inOut"
+        //     });
+        // })
 
-        const pointerOut=()=>{
-            gsap.to(this.polyBorder, {
-                alpha:0,
-                duration: 0.1,
-                ease: "power2.inOut"
-            });
-        }
-        this.on('pointerout', pointerOut);
-        this.on('pointercancel', pointerOut);
+        // const pointerOut=()=>{
+        //     gsap.to(this.polyBorderHover, {
+        //         alpha:0,
+        //         duration: 0.1,
+        //         ease: "power2.inOut"
+        //     });
+        // }
+        // this.on('pointerout', pointerOut);
+        // this.on('pointercancel', pointerOut);
 
         this.on('click',()=>{
-            console.log(this.origCoord)
-            this.debugLabel.visible=true
-            setTimeout(()=>{
-                this.debugLabel.visible=false
-            },1000)
+            if (!isDrag){
+                
+                
+                this.Select()
+    
+                this.typeIndex=0
+                
+                this.pixelsTile=[]
+                let ig=["0;0","8;8","0;8","8;0","1;0","7;8","1;8","7;0","0;1","8;7","0;7","8;1"]
+                for (let x=0;x<9;x++){
+                    for (let y=0;y<9;y++){
+                        if (!ig.includes(`${x};${y}`)){
+                            //setPixel((Math.floor(this.origCoordHex[0])+x)%795,Math.floor(this.origCoordHex[1])+y+Math.round((800-tileSize*75)/2),[255,255,0])
+                            let gridX=(Math.floor(this.origCoordHex[0])+x)%795
+                            let gridY=Math.floor(this.origCoordHex[1])+y+Math.round((800-tileSize*75)/2)
+                            this.pixelsTile.push(pixels[gridX][gridY])
+                        }
+                    }
+                }
+                //DebugTile()
+
+                this.typeIndex=getTypeFromPixels(this.pixelsTile)
+
+                let type=['deep ocean','ocean','sand','plain','hills','mountain','snow']
+                console.log(this.origCoord,type[this.typeIndex])
+            }else{
+                isDrag=false
+            }
         })
     }
-    UpdatePosition(){
+    UpdatePosition(f=false){
+        this.origCoordHex=getCoordHex(this.origCoord,this.size)
+
         let coordHex = getCoordHex(this.coord,this.size)
+        this.coordHex=coordHex
         this.x=this.parentPos[0]+coordHex[0]
         this.y=this.parentPos[1]+coordHex[1]
+
+        if (f){
+            this.typeIndex=0
+        }
+    }
+    Select(){
+        if (selectedTile && selectedTile!==this) selectedTile.UnSelect()
+        selectedTile=this
+        this.polyBorderSelected.alpha=1
+    }
+    UnSelect(){
+        gsap.to(this.polyBorderSelected, {
+            alpha:0,
+            duration: 0.1,
+            ease: "power2.inOut"
+        });
     }
 }
 
@@ -500,19 +621,9 @@ function resetWrap(){
 }
 
 function createGrid(container,coord,size){
-    let gridTiles=[]
-    for (let x=0;x<size[0];x++){
-        let col=[]
-        for (let y=0;y<size[1];y++){
-            let tile=new GridTile([coord[0]+tileSize/2*Math.sqrt(3)/2,coord[1]+tileSize/2],[x,y],tileSize)
-            container.addChild(tile)
-            col.push(tile)
-        }
-        gridTiles.push(col)
-    }
     //let seed="1782128928507"
-    //let seed="1782128973226" //Snow
-    let seed="julie"
+    let seed="1782128973226" //Snow
+    //let seed="julie"
     let config={
     //Default
         scale:0.005,
@@ -528,10 +639,10 @@ function createGrid(container,coord,size){
 
     let perlinNoise= new PerlinNoise(seed,config)
     const result=perlinNoise.createPerlinNoise(0,800,0,800)
-    const pixels=result[0]
+    pixels=result[0]
     const mapTexture=result[1]
 
-    let mapSpriteLeft = new PIXI.Sprite(mapTexture)
+    mapSpriteLeft = new PIXI.Sprite(mapTexture)
     map.addChild(mapSpriteLeft)
 
     mapSpriteLeft.width=800
@@ -539,7 +650,7 @@ function createGrid(container,coord,size){
     mapSpriteLeft.x=-tileSize*Math.sqrt(3)/2*102
     mapSpriteLeft.y=-(800-tileSize*75)/2
 
-    let mapSprite = new PIXI.Sprite(mapTexture)
+    mapSprite = new PIXI.Sprite(mapTexture)
     map.addChild(mapSprite)
 
     mapSprite.width=800
@@ -548,7 +659,7 @@ function createGrid(container,coord,size){
     mapSprite.y=-(800-tileSize*75)/2
 
     
-    let mapSpriteRight = new PIXI.Sprite(mapTexture)
+    mapSpriteRight = new PIXI.Sprite(mapTexture)
     map.addChild(mapSpriteRight)
 
     mapSpriteRight.width=800
@@ -556,6 +667,17 @@ function createGrid(container,coord,size){
     mapSpriteRight.x=tileSize*Math.sqrt(3)/2*102
     mapSpriteRight.y=-(800-tileSize*75)/2
 
+    let gridTiles=[]
+    for (let x=0;x<size[0];x++){
+        let col=[]
+        for (let y=0;y<size[1];y++){
+            let tile=new GridTile([coord[0]+tileSize/2*Math.sqrt(3)/2,coord[1]+tileSize/2],[x,y],tileSize)
+            container.addChild(tile)
+            col.push(tile)
+        }
+        gridTiles.push(col)
+    }
+    
     return gridTiles
 }
 
