@@ -22,14 +22,14 @@ for (let i = 0; i < 6; i++) {
     pointsHitBox.push(Math.round(276 * Math.sin(angle)))
     points.push(Math.round(250 * Math.cos(angle)))
     points.push(Math.round(250 * Math.sin(angle)))
-    pointsOut.push(265 * Math.cos(angle))
-    pointsOut.push(265 * Math.sin(angle))
+    pointsOut.push(264.5 * Math.cos(angle))
+    pointsOut.push(264.5 * Math.sin(angle))
 }
 
 let selectedUnit
 let moveTiles=[]
 
-const createNoise2D=window.createNoise2D 
+const createNoise2D=window.createNoise2D
 
 const app = new PIXI.Application({
     width: document.getElementById('game').clientWidth,
@@ -88,10 +88,8 @@ app.stage.on('pointermove', (e) => {
 
     if (coordPressStart && isPress && distanceEucl([e.global.x,e.global.y],coordPressStart)>20){
         isDrag=true
-    }else{
-        if (coordPressStart && isPress) console.log(distanceEucl([e.global.x,e.global.y],coordPressStart))
     }
-    
+
     if (!pointers.has(e.pointerId)) return
 
     pointers.set(e.pointerId, {
@@ -195,7 +193,7 @@ app.ticker.add(() => {
     // if (world.x > 0) world.x -= WORLD_WIDTH-o;
     world.y=world.y.clamp(-tileSize*world.scale.x*75+app.screen.height,0)
     world.x=world.x.clamp(-2*tileSize*Math.sqrt(3)/2*102*world.scale.x+app.screen.width,tileSize*Math.sqrt(3)/2*102*world.scale.x)
-    
+
     let offsetWorld=Math.round(world.x/(tileSize*Math.sqrt(3)/2*world.scale.x))
     let lastOffsetTile=offsetTile
     if (world.scale.x > app.screen.width/(tileSize*Math.sqrt(3)/2*101)){
@@ -203,7 +201,7 @@ app.ticker.add(() => {
     }else{
         offsetTile=-offsetWorld
     }
-    
+
     warpTiles(lastOffsetTile,offsetTile)
 
     if (app.screen.width-world.x<=0 || world.x<=-tileSize*Math.sqrt(3)/2*102*world.scale.x){
@@ -220,6 +218,38 @@ world.addChild(grid)
 let units = new PIXI.Container()
 world.addChild(units)
 
+//Moves Border
+let maskLeft = new PIXI.Graphics()
+maskLeft.beginFill("0000ff")
+maskLeft.drawRect(-tileSize*Math.sqrt(3)/2*102, 0, tileSize*Math.sqrt(3)/2*102, 800)
+maskLeft.endFill()
+world.addChild(maskLeft)
+
+let maskRight = new PIXI.Graphics()
+maskRight.beginFill("ff0000")
+maskRight.drawRect(tileSize*Math.sqrt(3)/2*102, 0, 800, 800)
+maskRight.endFill()
+world.addChild(maskRight)
+
+let mask = new PIXI.Graphics()
+mask.beginFill("ffffff")
+mask.drawRect(0, 0, tileSize*Math.sqrt(3)/2*102, 800)
+mask.endFill()
+world.addChild(mask)
+
+polyBorderMoves = new PIXI.Graphics()
+polyBorderMoves.mask=mask
+
+polyBorderMovesLeft = new PIXI.Graphics(polyBorderMoves.geometry)
+polyBorderMovesLeft.mask=maskLeft
+
+polyBorderMovesRight = new PIXI.Graphics(polyBorderMoves.geometry)
+polyBorderMovesRight.mask=maskRight
+
+world.addChild(polyBorderMovesLeft)
+world.addChild(polyBorderMoves)
+world.addChild(polyBorderMovesRight)
+
 //Selected Border
 polyBorderSelected = new PIXI.Graphics()
 polyBorderSelected.lineStyle(26, 0xffffff, 1, 0.5);
@@ -227,10 +257,6 @@ polyBorderSelected.drawPolygon(points)
 polyBorderSelected.alpha=0
 
 world.addChild(polyBorderSelected)
-
-//Moves Border
-polyBorderMoves = new PIXI.Graphics()
-world.addChild(polyBorderMoves)
 
 let sizeCanvas=800
 const canvas = document.getElementById("perlinNoise");
@@ -272,7 +298,7 @@ class PerlinNoise{
         this.n=createNoise2D(rng)
         this.n2=createNoise2D(rng2)
         this.n3=createNoise2D(rng3)
-        
+
         //// Parameters
         const defaults={
             // Main
@@ -332,7 +358,7 @@ class PerlinNoise{
                 for (let i=0;i<this.warpOctaves+1;i++){
                     dx+=this.n2(coordX*warpFrequency,coordY*warpFrequency)*warpAmplitude
                     dy+=this.n3(coordX*warpFrequency,coordY*warpFrequency)*warpAmplitude
-                
+
                     warpFrequency *= this.warpLacunarity
                     warpAmplitude *= this.warpPersistence
                 }
@@ -342,7 +368,7 @@ class PerlinNoise{
                 }
                 dx*=this.warpStrength
                 dy*=this.warpStrength
-                
+
                 let s=0
                 let d=0
                 let amplitude=1
@@ -432,7 +458,7 @@ function getCoordNeighbors(coord){
     for (let n in r){
         let nx=(r[n][0]+x)%102
         let ny=r[n][1]+y
-        console.log(nx,ny)
+
         if (ny>0 && ny<100){
             if (nx<0) {nx+=102}
             ns.push([nx,ny])
@@ -467,34 +493,34 @@ class GridTile extends PIXI.Sprite{
         this.parentPos=parentPos
         this.width=this.size
         this.height=this.size
-        
+
         this.UpdatePosition(true)
 
         this.anchor.set(0.5,0.5)
         this.hitArea = new PIXI.Polygon(pointsHitBox);
 
         //Debug Border
-        this.polyBorderDebug = new PIXI.Graphics();
-        this.polyBorderDebug.lineStyle(26, 0xff0000, 1);
-        this.polyBorderDebug.drawPolygon(points)
-        this.polyBorderDebug.alpha=0
-        this.addChild(this.polyBorderDebug)
+        // this.polyBorderDebug = new PIXI.Graphics();
+        // this.polyBorderDebug.lineStyle(26, 0xff0000, 1);
+        // this.polyBorderDebug.drawPolygon(points)
+        // this.polyBorderDebug.alpha=0
+        // this.addChild(this.polyBorderDebug)
 
-        this.debugLabel = new PIXI.Text(`${this.origCoord[0]},${this.origCoord[1]}`,{
-                fontSize: 80,
-                fill: "#ffffff",
-                stroke: "#000000",
-                strokeThickness:2
-            }
-        )
+        // this.debugLabel = new PIXI.Text(`${this.origCoord[0]},${this.origCoord[1]}`,{
+        //         fontSize: 80,
+        //         fill: "#ffffff",
+        //         stroke: "#000000",
+        //         strokeThickness:2
+        //     }
+        // )
 
-        this.debugLabel.x = -this.debugLabel.width/2
-        this.debugLabel.y = -this.debugLabel.height/2
+        // this.debugLabel.x = -this.debugLabel.width/2
+        // this.debugLabel.y = -this.debugLabel.height/2
 
-        this.addChild(this.debugLabel)
-        this.debugLabel.visible=false
-        this.debugLabel.eventMode="none"
-        
+        // this.addChild(this.debugLabel)
+        // this.debugLabel.visible=false
+        // this.debugLabel.eventMode="none"
+
         // this.debugLabel = new PIXI.Text(`${this.coord[0]},${this.coord[1]}`,{
         //         fontSize: size/5,
         //         fill: "#ffffff",
@@ -533,7 +559,7 @@ class GridTile extends PIXI.Sprite{
         this.on('click',()=>{
             if (!isDrag){
                 this.Select()
-                
+
                 // this.pixelsTile=[]
                 // let ig=["0;0","8;8","0;8","8;0","1;0","7;8","1;8","7;0","0;1","8;7","0;7","8;1"]
                 // for (let x=0;x<9;x++){
@@ -550,13 +576,6 @@ class GridTile extends PIXI.Sprite{
 
                 let type=['deep ocean','ocean','sand','plain','hills','mountain','snow']
                 console.log(this.origCoord,type[this.typeIndex])
-
-                if (!(this.origCoord[0]===49 && this.origCoord[1]===34)){
-                    if (!isInList(this.origCoord,moveTiles)){
-                        moveTiles.push(this.origCoord)
-                        getTileFromCoord([49,34]).updateBorderMoveArea([49,34],moveTiles)
-                    }
-                }
             }else{
                 isDrag=false
             }
@@ -592,6 +611,7 @@ class GridTile extends PIXI.Sprite{
         }
     }
     Select(){
+        //Case
         if (selectedTile && selectedTile!==this) selectedTile.UnSelect()
         selectedTile=this
 
@@ -599,29 +619,49 @@ class GridTile extends PIXI.Sprite{
         polyBorderSelected.scale.copyFrom(this.scale)
         polyBorderSelected.alpha=1
 
-        if (this.unitSprite){
-            selectedUnit=this.unitSprite
-            moveTiles=this.unitSprite.getMovesTiles()
-            this.updateBorderMoveArea(this.origCoord,moveTiles)
+        //Unité
+        console.log(isInList(this.origCoord,moveTiles))
+        if (isInList(this.origCoord,moveTiles)){
+            selectedUnit.moveTo(this.origCoord)
+            polyBorderMoves.clear()
+        }else{
+            selectedUnit=null
+            moveTiles=[]
+
+            if (this.unitSprite){
+                selectedUnit=this.unitSprite
+                moveTiles=this.unitSprite.getMovesTiles()
+                this.updateBorderMoveArea(this.origCoord,moveTiles)
+            }else{
+                polyBorderMoves.clear()
+            }
         }
+
+        
     }
     UnSelect(){
         polyBorderSelected.alpha=0
-
-        if (this.unitSprite){
-            if (selectedUnit===this.unitSprite){
-                selectedUnit=null
-                //moveTiles=[]
-            }
-        }
     }
     addUnit(u){
         this.unitSprite=u
         this.UpdatePosition()
         this.unitSprite.tileCoord=this.origCoord
     }
+    removeUnit(u){
+        this.unitSprite=null
+    }
     updateBorderMoveArea(o,group){
         
+        let newGroup=[]
+        for (let g of group){
+            newGroup.push(g)
+            if (g[0]===0){
+                newGroup.push([102,g[1]])
+            }else if (g[0]===101){
+                newGroup.push([-1,g[1]])
+            }
+        }
+
         polyBorderMoves.clear()
         polyBorderMoves.lineStyle(26, "#19d1f1", 1, 1)
 
@@ -630,24 +670,24 @@ class GridTile extends PIXI.Sprite{
         //Add points of the origin hexagon
         let psO=[]
         for (let p=0;p<pointsOut.length;p+=2){
-            psO.push([Math.round(pointsOut[p]),Math.round(pointsOut[p+1])])
+            psO.push([pointsOut[p],pointsOut[p+1],o])
         }
         allPoints.push(psO)
 
-        for (let g=0;g<group.length;g++){
+        for (let g=0;g<newGroup.length;g++){
             //Get center of the Hexagon
-            let cg=getCenterTranslation(o,group[g])
+            let cg=getCenterTranslation(o,newGroup[g])
             let ps=[]
-            
+
             //Get all points
             for (let p=0;p<pointsOut.length;p+=2){
-                let x=Math.round(cg[0]+pointsOut[p])
-                let y=Math.round(cg[1]+pointsOut[p+1])
+                let x=cg[0]+pointsOut[p]
+                let y=cg[1]+pointsOut[p+1]
 
                 //Merge by distance
                 for (let i=0;i<g+1;i++){
                     for (let q=0;q<6;q++){
-                        if (Math.abs(allPoints[i][q][0]-x)<3 && Math.abs(allPoints[i][q][1]-y)<3){
+                        if (Math.round(Math.abs(allPoints[i][q][0]-x))<3 && Math.round(Math.abs(allPoints[i][q][1]-y))<3){
                             x=allPoints[i][q][0]
                             y=allPoints[i][q][1]
                         }
@@ -663,11 +703,11 @@ class GridTile extends PIXI.Sprite{
         }
 
         let allEdges={}
-        for (let g of allPoints){
+        for (let g in allPoints){
             for (let e=0;e<6;e++){
-                let nedge=normalizeEdge(g[e],g[(e+1)%6])
-                let edge=formatEdge(g[e],g[(e+1)%6])
-                
+                let nedge=normalizeEdge(allPoints[g][e],allPoints[g][(e+1)%6])
+                let edge=formatEdge(allPoints[g][e],allPoints[g][(e+1)%6])
+
                 if (allEdges[nedge]){
                     delete allEdges[nedge]
                 }else{
@@ -681,8 +721,6 @@ class GridTile extends PIXI.Sprite{
             dedge[allEdges[d][0]]=allEdges[d][1]
         }
 
-        console.log({...dedge})
-        
         let start=Object.keys(dedge)[0]
         polyBorderMoves.moveTo(Number(start.split(';')[0]),Number(start.split(';')[1]))
         let current=null
@@ -698,7 +736,7 @@ class GridTile extends PIXI.Sprite{
                     current = newCurrent
                 }else{
                     //Move to new cycle
-                    console.log("NewCycle",start)
+                    polyBorderMoves.closePath()
                     start=Object.keys(dedge)[0]
                     polyBorderMoves.moveTo(Number(start.split(';')[0]),Number(start.split(';')[1]))
 
@@ -706,15 +744,24 @@ class GridTile extends PIXI.Sprite{
                     delete dedge[start]
                 }
             }
-
-            console.log(current)
             
             polyBorderMoves.lineTo(Number(current.split(';')[0]),Number(current.split(';')[1]))
         }
 
         polyBorderMoves.closePath()
-        polyBorderMoves.position.copyFrom(this.position)
+
+        polyBorderMoves.x=this.parentPos[0]+this.origCoordHex[0]
+        polyBorderMoves.y=this.parentPos[1]+this.origCoordHex[1]
         polyBorderMoves.scale.copyFrom(this.scale)
+
+        polyBorderMovesLeft.x=polyBorderMoves.x-tileSize*Math.sqrt(3)/2*102
+        polyBorderMovesLeft.y=polyBorderMoves.y
+        polyBorderMovesLeft.scale.copyFrom(this.scale)
+
+        polyBorderMovesRight.x=polyBorderMoves.x+tileSize*Math.sqrt(3)/2*102
+        polyBorderMovesRight.y=polyBorderMoves.y
+        polyBorderMovesRight.scale.copyFrom(this.scale)
+
     }
 }
 
@@ -730,37 +777,22 @@ function formatEdge(a, b) {
     return [`${a[0]};${a[1]}`,`${b[0]};${b[1]}`]
 }
 
-function FindDoubles(points){
-    let doubles={}
-    for (let g in points){
-        for (let p in points[g]){
-            let x=points[g][p][0]
-            let y=points[g][p][1]
-            if (doubles[`${x};${y}`]){
-                doubles[`${x};${y}`].push(g)
-            }else{
-                doubles[`${x};${y}`]=[g]
-            }
-        }
-    }
-    return doubles
-}
 function getCenterTranslation(o,g){
     let c=[]
     let dx=(g[0]-o[0])
     let dy=g[1]-o[1]
-    
-    let h=265*Math.sqrt(3)
+
+    let h=264.5*Math.sqrt(3)
     let s=h*dx
     if (dy%2!==0){
         dx=dx*2+1
         if (o[1]%2==0){
             s=h/2*dx
         }else{
-            s=-h/2*dx
+            s=h/2*(dx-2)
         }
     }
-    return [s,265*3/2*dy]
+    return [s,264.5*3/2*dy]
 }
 
 function isInList(a,b){
@@ -858,7 +890,7 @@ function createGrid(container,coord,size){
     mapSprite.x=0
     mapSprite.y=-(800-tileSize*75)/2
 
-    
+
     mapSpriteRight = new PIXI.Sprite(mapTexture)
     map.addChild(mapSpriteRight)
 
@@ -877,7 +909,7 @@ function createGrid(container,coord,size){
         }
         gridTiles.push(col)
     }
-    
+
     return gridTiles
 }
 
@@ -894,7 +926,7 @@ gridTiles = createGrid(grid,[0,0],[102,100])
 //     const angle = (Math.PI / 3) * i - Math.PI / 2;
 //     const x = r * Math.cos(angle);
 //     const y = r * Math.sin(angle);
-    
+
 //     if (i === 0) g.moveTo(x, y);
 //     else g.lineTo(x, y);
 // }
@@ -928,7 +960,18 @@ class Unit extends PIXI.Sprite{
         this.eventMode='none'
     }
     getMovesTiles(){
+        
         return getCoordNeighbors(this.tileCoord)
+
+        let m=[]
+        for (let i=0;i<102;i++){
+            if (i!==this.tileCoord[0]) m.push([i,this.tileCoord[1]])
+        }
+        return m
+    }
+    moveTo(c){
+        getTileFromCoord(this.tileCoord).removeUnit()
+        getTileFromCoord(c).addUnit(this)
     }
 }
 
