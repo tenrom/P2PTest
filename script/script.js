@@ -12,6 +12,23 @@ let mapSprite
 let mapSpriteRight
 let pixels
 
+let pointsOut=[]
+let pointsHitBox=[]
+let points=[]
+let p
+for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i - Math.PI / 2
+    pointsHitBox.push(Math.round(276 * Math.cos(angle)))
+    pointsHitBox.push(Math.round(276 * Math.sin(angle)))
+    points.push(Math.round(250 * Math.cos(angle)))
+    points.push(Math.round(250 * Math.sin(angle)))
+    pointsOut.push(265 * Math.cos(angle))
+    pointsOut.push(265 * Math.sin(angle))
+}
+
+let selectedUnit
+let moveTiles=[]
+
 const createNoise2D=window.createNoise2D 
 
 const app = new PIXI.Application({
@@ -199,6 +216,21 @@ world.addChild(map)
 
 let grid = new PIXI.Container()
 world.addChild(grid)
+
+let units = new PIXI.Container()
+world.addChild(units)
+
+//Selected Border
+polyBorderSelected = new PIXI.Graphics()
+polyBorderSelected.lineStyle(26, 0xffffff, 1, 0.5);
+polyBorderSelected.drawPolygon(points)
+polyBorderSelected.alpha=0
+
+world.addChild(polyBorderSelected)
+
+//Moves Border
+polyBorderMoves = new PIXI.Graphics()
+world.addChild(polyBorderMoves)
 
 let sizeCanvas=800
 const canvas = document.getElementById("perlinNoise");
@@ -388,9 +420,9 @@ function getCoordHex(coord,size){
 function getCoordNeighbors(coord){
     let x=coord[0]
     let y=coord[1]
-    let even=[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1]]
-    let odd=[[-1,0],[1,0],[0,-1],[0,1],[1,-1],[1,1]]
-    let r   
+    let even=[[0,-1],[1,0],[0,1],[-1,1],[-1,0],[-1,-1]]
+    let odd=[[1,-1],[1,0],[1,1],[0,1],[-1,0],[0,-1]]
+    let r
     if (coord[1]%2===0){
         r=even
     }else{
@@ -439,37 +471,14 @@ class GridTile extends PIXI.Sprite{
         this.UpdatePosition(true)
 
         this.anchor.set(0.5,0.5)
-        let pointsHitBox=[]
-        let r=276
-        for (let i = 0; i < 6; i++) {
-            const angle = (Math.PI / 3) * i - Math.PI / 2
-            pointsHitBox.push(r * Math.cos(angle))
-            pointsHitBox.push(r * Math.sin(angle))
-        }
         this.hitArea = new PIXI.Polygon(pointsHitBox);
-
-        // Debug draw
-        let points=[]
-        r=250
-        for (let i = 0; i < 6; i++) {
-            const angle = (Math.PI / 3) * i - Math.PI / 2
-            points.push(r * Math.cos(angle))
-            points.push(r * Math.sin(angle))
-        }
-
-        //Selected Border
-        this.polyBorderSelected = new PIXI.Graphics();
-        this.polyBorderSelected.lineStyle(26, 0xffffff, 1);
-        this.polyBorderSelected.drawPolygon(points)
-        this.polyBorderSelected.alpha=0
-        this.addChild(this.polyBorderSelected);
 
         //Debug Border
         this.polyBorderDebug = new PIXI.Graphics();
         this.polyBorderDebug.lineStyle(26, 0xff0000, 1);
         this.polyBorderDebug.drawPolygon(points)
         this.polyBorderDebug.alpha=0
-        this.addChild(this.polyBorderDebug);
+        this.addChild(this.polyBorderDebug)
 
         this.debugLabel = new PIXI.Text(`${this.origCoord[0]},${this.origCoord[1]}`,{
                 fontSize: 80,
@@ -519,32 +528,35 @@ class GridTile extends PIXI.Sprite{
         // this.on('pointerout', pointerOut);
         // this.on('pointercancel', pointerOut);
 
+        this.unitSprite
+
         this.on('click',()=>{
             if (!isDrag){
-                
-                
                 this.Select()
-    
-                this.typeIndex=0
                 
-                this.pixelsTile=[]
-                let ig=["0;0","8;8","0;8","8;0","1;0","7;8","1;8","7;0","0;1","8;7","0;7","8;1"]
-                for (let x=0;x<9;x++){
-                    for (let y=0;y<9;y++){
-                        if (!ig.includes(`${x};${y}`)){
-                            //setPixel((Math.floor(this.origCoordHex[0])+x)%795,Math.floor(this.origCoordHex[1])+y+Math.round((800-tileSize*75)/2),[255,255,0])
-                            let gridX=(Math.floor(this.origCoordHex[0])+x)%795
-                            let gridY=Math.floor(this.origCoordHex[1])+y+Math.round((800-tileSize*75)/2)
-                            this.pixelsTile.push(pixels[gridX][gridY])
-                        }
-                    }
-                }
-                //DebugTile()
-
-                this.typeIndex=getTypeFromPixels(this.pixelsTile)
+                // this.pixelsTile=[]
+                // let ig=["0;0","8;8","0;8","8;0","1;0","7;8","1;8","7;0","0;1","8;7","0;7","8;1"]
+                // for (let x=0;x<9;x++){
+                //     for (let y=0;y<9;y++){
+                //         if (!ig.includes(`${x};${y}`)){
+                //             setPixel((Math.floor(this.origCoordHex[0])+x)%795,Math.floor(this.origCoordHex[1])+y+Math.round((800-tileSize*75)/2),[255,255,0])
+                //             let gridX=(Math.floor(this.origCoordHex[0])+x)%795
+                //             let gridY=Math.floor(this.origCoordHex[1])+y+Math.round((800-tileSize*75)/2)
+                //             this.pixelsTile.push(pixels[gridX][gridY])
+                //         }
+                //     }
+                // }
+                // DebugTile()
 
                 let type=['deep ocean','ocean','sand','plain','hills','mountain','snow']
                 console.log(this.origCoord,type[this.typeIndex])
+
+                if (!(this.origCoord[0]===49 && this.origCoord[1]===34)){
+                    if (!isInList(this.origCoord,moveTiles)){
+                        moveTiles.push(this.origCoord)
+                        getTileFromCoord([49,34]).updateBorderMoveArea([49,34],moveTiles)
+                    }
+                }
             }else{
                 isDrag=false
             }
@@ -558,22 +570,210 @@ class GridTile extends PIXI.Sprite{
         this.x=this.parentPos[0]+coordHex[0]
         this.y=this.parentPos[1]+coordHex[1]
 
+        if (this.unitSprite){
+            this.unitSprite.x=this.x
+            this.unitSprite.y=this.y
+        }
+
         if (f){
             this.typeIndex=0
+            this.pixelsTile=[]
+            let ig=["0;0","8;8","0;8","8;0","1;0","7;8","1;8","7;0","0;1","8;7","0;7","8;1"]
+            for (let x=0;x<9;x++){
+                for (let y=0;y<9;y++){
+                    if (!ig.includes(`${x};${y}`)){
+                        let gridX=(Math.floor(this.origCoordHex[0])+x)%795
+                        let gridY=Math.floor(this.origCoordHex[1])+y+Math.round((800-tileSize*75)/2)
+                        this.pixelsTile.push(pixels[gridX][gridY])
+                    }
+                }
+            }
+            this.typeIndex=getTypeFromPixels(this.pixelsTile)
         }
     }
     Select(){
         if (selectedTile && selectedTile!==this) selectedTile.UnSelect()
         selectedTile=this
-        this.polyBorderSelected.alpha=1
+
+        polyBorderSelected.position.copyFrom(this.position)
+        polyBorderSelected.scale.copyFrom(this.scale)
+        polyBorderSelected.alpha=1
+
+        if (this.unitSprite){
+            selectedUnit=this.unitSprite
+            moveTiles=this.unitSprite.getMovesTiles()
+            this.updateBorderMoveArea(this.origCoord,moveTiles)
+        }
     }
     UnSelect(){
-        gsap.to(this.polyBorderSelected, {
-            alpha:0,
-            duration: 0.1,
-            ease: "power2.inOut"
-        });
+        polyBorderSelected.alpha=0
+
+        if (this.unitSprite){
+            if (selectedUnit===this.unitSprite){
+                selectedUnit=null
+                //moveTiles=[]
+            }
+        }
     }
+    addUnit(u){
+        this.unitSprite=u
+        this.UpdatePosition()
+        this.unitSprite.tileCoord=this.origCoord
+    }
+    updateBorderMoveArea(o,group){
+        
+        polyBorderMoves.clear()
+        polyBorderMoves.lineStyle(26, "#19d1f1", 1, 1)
+
+        let allPoints=[]
+
+        //Add points of the origin hexagon
+        let psO=[]
+        for (let p=0;p<pointsOut.length;p+=2){
+            psO.push([Math.round(pointsOut[p]),Math.round(pointsOut[p+1])])
+        }
+        allPoints.push(psO)
+
+        for (let g=0;g<group.length;g++){
+            //Get center of the Hexagon
+            let cg=getCenterTranslation(o,group[g])
+            let ps=[]
+            
+            //Get all points
+            for (let p=0;p<pointsOut.length;p+=2){
+                let x=Math.round(cg[0]+pointsOut[p])
+                let y=Math.round(cg[1]+pointsOut[p+1])
+
+                //Merge by distance
+                for (let i=0;i<g+1;i++){
+                    for (let q=0;q<6;q++){
+                        if (Math.abs(allPoints[i][q][0]-x)<3 && Math.abs(allPoints[i][q][1]-y)<3){
+                            x=allPoints[i][q][0]
+                            y=allPoints[i][q][1]
+                        }
+                    }
+                }
+
+                //Add Point
+                ps.push([x,y])
+            }
+
+            //Add hexagon points
+            allPoints.push(ps)
+        }
+
+        let allEdges={}
+        for (let g of allPoints){
+            for (let e=0;e<6;e++){
+                let nedge=normalizeEdge(g[e],g[(e+1)%6])
+                let edge=formatEdge(g[e],g[(e+1)%6])
+                
+                if (allEdges[nedge]){
+                    delete allEdges[nedge]
+                }else{
+                    allEdges[nedge]=edge
+                }
+            }
+        }
+
+        let dedge={}
+        for (let d in allEdges){
+            dedge[allEdges[d][0]]=allEdges[d][1]
+        }
+
+        console.log({...dedge})
+        
+        let start=Object.keys(dedge)[0]
+        polyBorderMoves.moveTo(Number(start.split(';')[0]),Number(start.split(';')[1]))
+        let current=null
+        while (Object.keys(dedge).length!==0){
+            if (current===null){
+                current = dedge[start]
+                delete dedge[start]
+            }else{
+                let newCurrent = dedge[current]
+                //If cycle not finish
+                if (dedge[current]){
+                    delete dedge[current]
+                    current = newCurrent
+                }else{
+                    //Move to new cycle
+                    console.log("NewCycle",start)
+                    start=Object.keys(dedge)[0]
+                    polyBorderMoves.moveTo(Number(start.split(';')[0]),Number(start.split(';')[1]))
+
+                    current = dedge[start]
+                    delete dedge[start]
+                }
+            }
+
+            console.log(current)
+            
+            polyBorderMoves.lineTo(Number(current.split(';')[0]),Number(current.split(';')[1]))
+        }
+
+        polyBorderMoves.closePath()
+        polyBorderMoves.position.copyFrom(this.position)
+        polyBorderMoves.scale.copyFrom(this.scale)
+    }
+}
+
+function normalizeEdge(a, b) {
+    let ax=a[0]
+    let ay=a[1]
+    let bx=b[0]
+    let by=b[1]
+    return ax < bx || (ax === bx && ay < by) ? `${ax},${ay}|${bx},${by}` : `${bx},${by}|${ax},${ay}`;
+}
+
+function formatEdge(a, b) {
+    return [`${a[0]};${a[1]}`,`${b[0]};${b[1]}`]
+}
+
+function FindDoubles(points){
+    let doubles={}
+    for (let g in points){
+        for (let p in points[g]){
+            let x=points[g][p][0]
+            let y=points[g][p][1]
+            if (doubles[`${x};${y}`]){
+                doubles[`${x};${y}`].push(g)
+            }else{
+                doubles[`${x};${y}`]=[g]
+            }
+        }
+    }
+    return doubles
+}
+function getCenterTranslation(o,g){
+    let c=[]
+    let dx=(g[0]-o[0])
+    let dy=g[1]-o[1]
+    
+    let h=265*Math.sqrt(3)
+    let s=h*dx
+    if (dy%2!==0){
+        dx=dx*2+1
+        if (o[1]%2==0){
+            s=h/2*dx
+        }else{
+            s=-h/2*dx
+        }
+    }
+    return [s,265*3/2*dy]
+}
+
+function isInList(a,b){
+    for (let c in b){
+        if (a[0]===b[c][0] && a[1]===b[c][1]){
+            return true
+        }
+    }
+    return false
+}
+
+function isEqual(a,b){
+    return a[0]===b[0] && a[1]===b[1]
 }
 
 function warpTiles(l,n){
@@ -622,8 +822,8 @@ function resetWrap(){
 
 function createGrid(container,coord,size){
     //let seed="1782128928507"
-    let seed="1782128973226" //Snow
-    //let seed="julie"
+    //let seed="1782128973226" //Snow
+    let seed="julie"
     let config={
     //Default
         scale:0.005,
@@ -716,3 +916,25 @@ gridTiles = createGrid(grid,[0,0],[102,100])
 // a.click();
 
 
+class Unit extends PIXI.Sprite{
+    constructor(typeIndex){
+        super(unitsTexture[typeIndex])
+
+        this.width=7
+        this.height=7
+        this.anchor.set(0.5,0.5)
+        this.tileCoord=[-1,-1]
+
+        this.eventMode='none'
+    }
+    getMovesTiles(){
+        return getCoordNeighbors(this.tileCoord)
+    }
+}
+
+let unitType = ["Éclaireur","Bâtisseur","Guerrier"]
+let unitsTexture = [PIXI.Texture.from("data/start.png")]
+let u = new Unit(0)
+units.addChild(u)
+
+getTileFromCoord([49,34]).addUnit(u)
